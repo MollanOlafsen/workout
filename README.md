@@ -33,6 +33,13 @@ python -m http.server 8000
 
 og gå til `http://localhost:8000`.
 
+## På nett
+
+Appen publiseres automatisk på GitHub Pages hver gang `main` oppdateres:
+https://mollanolafsen.github.io/workout/
+
+Første gang må Pages skrus på i repoet: Settings → Pages → Source: «GitHub Actions».
+
 ## Bruke på mobilen
 
 Mappen må ligge på en webserver med HTTPS for å kunne åpnes på telefonen. Last opp alle filene til en undermappe på et nettsted du styrer, åpne adressen i Safari, og velg Del → Legg til på Hjem-skjerm.
