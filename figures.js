@@ -117,65 +117,98 @@ var FIGURES = (function () {
   };
 
   // ---- Tegning ----------------------------------------------------------
+  //
+  // Kroppen bygges av avsmalnende «kapsler» (to sirkler med ulik radius og
+  // flaten mellom dem), slik at lår, legger og armer får form.
+  // Figuren tegnes på nytt hvert bilde, så bevegelsen blir jevn.
 
   function lerp(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
+  function add(a, v, s) { return [a[0] + v[0] * s, a[1] + v[1] * s]; }
+  function unit(a, b) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], l = Math.sqrt(dx * dx + dy * dy) || 1;
+    return [dx / l, dy / l];
+  }
+  // Vinkelrett på en retning, mot «forsiden» (mot høyre når figuren står).
+  function front(u) { return [-u[1], u[0]]; }
 
   // Skoen peker fremover, vinkelrett på leggen. Holdes over bakken.
   function shoe(knee, foot) {
-    var dx = foot[0] - knee[0], dy = foot[1] - knee[1];
-    var len = Math.sqrt(dx * dx + dy * dy) || 1;
-    var v = [dy / len, -dx / len];
-    var heel = [foot[0] - v[0] * 1.5, foot[1] - v[1] * 1.5];
-    var toe = [foot[0] + v[0] * 5, foot[1] + v[1] * 5];
-    var lift = Math.max(heel[1], toe[1]) - (GROUND - 2);
+    var v = front(unit(foot, knee));
+    var heel = add(foot, v, -1.2), toe = add(foot, v, 4.6);
+    var lift = Math.max(heel[1], toe[1]) - (GROUND - 1.8);
     if (lift > 0) { heel[1] -= lift; toe[1] -= lift; }
     return [heel, toe];
   }
 
-  // Regner ut hjelpepunktene (ermer, shortskanter, sko, hode) for én stilling.
+  // Regner ut hjelpepunktene for én stilling.
   function derive(p) {
     var d = {};
     Object.keys(p).forEach(function (k) { d[k] = p[k]; });
-    d.chest = lerp(p.sh, p.hip, 0.15);
-    d.waist = lerp(p.hip, p.sh, 0.12);
-    d.neck = lerp(p.sh, p.head, 0.45);
-    d.sleeveF = lerp(p.sh, p.elbF, 0.55);
-    d.sleeveB = lerp(p.sh, p.elbB, 0.55);
+    var up = unit(p.hip, p.sh), f = front(up);
+    d.chest = lerp(p.sh, p.hip, 0.2);
+    d.waist = lerp(p.hip, p.sh, 0.18);
+    d.neck = lerp(p.sh, p.head, 0.5);
+    d.hiA = add(lerp(p.sh, p.hip, 0.22), f, 2.4);
+    d.hiB = add(lerp(p.sh, p.hip, 0.7), f, 2.1);
+    d.sleeveF = lerp(p.sh, p.elbF, 0.5);
+    d.sleeveB = lerp(p.sh, p.elbB, 0.5);
     d.shortsF = lerp(p.hip, p.kneF, 0.55);
     d.shortsB = lerp(p.hip, p.kneB, 0.55);
     var sf = shoe(p.kneF, p.footF), sb = shoe(p.kneB, p.footB);
-    d.heelF = sf[0]; d.toeF = sf[1];
-    d.heelB = sb[0]; d.toeB = sb[1];
-    d.hair = [p.head[0] - 1.3, p.head[1] - 1.5];
-    d.face = [p.head[0] + 0.5, p.head[1] + 0.3];
+    d.heelF = sf[0]; d.toeF = sf[1]; d.heelB = sb[0]; d.toeB = sb[1];
+    var hu = unit(p.sh, p.head), hf = front(hu);
+    d.hair = add(add(p.head, hf, -1.1), hu, 0.9);
+    d.face = add(p.head, hf, 0.35);
+    d.ear = add(p.head, hf, -0.9);
+    d.nose = add(add(p.head, hf, 5.3), hu, -0.4);
     return d;
   }
 
-  // Deler av kroppen, bakerst først: [fra, til, stil, tykkelse].
+  // Kroppsdeler, bakerst først.
+  // ['c', fra, radius, til, radius, farge] = kapsel, ['o', punkt, radius, farge] = sirkel.
   var PARTS = [
-    ['kneB', 'footB', 'skin back', 6],
-    ['heelB', 'toeB', 'shoe back', 4.5],
-    ['hip', 'kneB', 'skin back', 8],
-    ['hip', 'shortsB', 'shorts back', 9.5],
-    ['elbB', 'handB', 'skin back', 4.6],
-    ['sh', 'elbB', 'skin back', 5.6],
-    ['sh', 'sleeveB', 'shirt back', 7],
-    ['neck', 'sh', 'skin', 5],
-    ['kneF', 'footF', 'skin', 6],
-    ['heelF', 'toeF', 'shoe', 4.5],
-    ['hip', 'kneF', 'skin', 8],
-    ['hip', 'shortsF', 'shorts', 9.5],
-    ['chest', 'hip', 'shirt', 12],
-    ['waist', 'hip', 'shorts', 12.6],
-    ['elbF', 'handF', 'skin', 4.6],
-    ['sh', 'elbF', 'skin', 5.6],
-    ['sh', 'sleeveF', 'shirt', 7],
+    ['c', 'kneB', 3.0, 'footB', 2.0, 'skin-b'],
+    ['c', 'heelB', 1.8, 'toeB', 1.6, 'shoe-b'],
+    ['c', 'hip', 4.6, 'kneB', 3.2, 'skin-b'],
+    ['c', 'hip', 4.9, 'shortsB', 4.0, 'shorts-b'],
+    ['c', 'elbB', 2.2, 'handB', 1.6, 'skin-b'],
+    ['o', 'handB', 2.0, 'skin-b'],
+    ['c', 'sh', 2.9, 'elbB', 2.2, 'skin-b'],
+    ['c', 'sh', 3.4, 'sleeveB', 3.0, 'shirt-b'],
+    ['c', 'sh', 2.1, 'neck', 2.0, 'skin'],
+    ['c', 'kneF', 3.0, 'footF', 2.0, 'skin'],
+    ['c', 'heelF', 1.8, 'toeF', 1.6, 'shoe'],
+    ['c', 'hip', 4.6, 'kneF', 3.2, 'skin'],
+    ['c', 'chest', 5.4, 'waist', 4.5, 'shirt'],
+    ['c', 'hiA', 1.3, 'hiB', 1.0, 'shirt-hi'],
+    ['c', 'waist', 4.6, 'hip', 4.9, 'shorts'],
+    ['c', 'hip', 4.9, 'shortsF', 4.0, 'shorts'],
+    ['o', 'hair', 5.7, 'hair'],
+    ['o', 'face', 5.2, 'skin'],
+    ['o', 'nose', 1.1, 'skin'],
+    ['o', 'ear', 1.3, 'ear'],
+    ['c', 'sh', 2.9, 'elbF', 2.2, 'skin'],
+    ['c', 'sh', 3.4, 'sleeveF', 3.0, 'shirt'],
+    ['c', 'elbF', 2.2, 'handF', 1.6, 'skin'],
+    ['o', 'handF', 2.0, 'skin'],
   ];
 
-  function fmt(n) { return String(Math.round(n * 10) / 10); }
+  function fmt(n) { return String(Math.round(n * 100) / 100); }
+  function pt(p) { return fmt(p[0]) + ' ' + fmt(p[1]); }
 
-  function seg(d, a, b) {
-    return fmt(d[a][0]) + ',' + fmt(d[a][1]) + ' ' + fmt(d[b][0]) + ',' + fmt(d[b][1]);
+  function circlePath(c, r) {
+    return 'M' + pt([c[0] - r, c[1]]) + 'a' + r + ' ' + r + ' 0 1 0 ' + 2 * r + ' 0' +
+      'a' + r + ' ' + r + ' 0 1 0 ' + -2 * r + ' 0Z';
+  }
+
+  function capsulePath(a, ra, b, rb) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], l = Math.sqrt(dx * dx + dy * dy);
+    if (l < 0.01) return circlePath(a, Math.max(ra, rb));
+    var n = [-dy / l, dx / l];
+    return 'M' + pt(add(a, n, ra)) + 'L' + pt(add(b, n, rb)) +
+      'A' + rb + ' ' + rb + ' 0 0 0 ' + pt(add(b, n, -rb)) +
+      'L' + pt(add(a, n, -ra)) +
+      'A' + ra + ' ' + ra + ' 0 0 0 ' + pt(add(a, n, ra)) + 'Z';
   }
 
   function el(tag, attrs) {
@@ -189,59 +222,62 @@ var FIGURES = (function () {
     catch (e) { return false; }
   }
 
-  function animate(target, attr, a, b, dur) {
-    if (a === b) return;
-    target.appendChild(el('animate', {
-      attributeName: attr,
-      values: a + ';' + b + ';' + a,
-      keyTimes: '0;0.5;1',
-      calcMode: 'spline',
-      keySplines: '0.45 0 0.55 1;0.45 0 0.55 1',
-      dur: dur + 's',
-      repeatCount: 'indefinite',
-    }));
+  function mix(A, B, t) {
+    var p = {};
+    Object.keys(A).forEach(function (k) { p[k] = lerp(A[k], B[k], t); });
+    return p;
   }
 
-  function circle(A, B, key, r, cls, still, dur) {
-    var c = el('circle', { cx: fmt((still ? B : A)[key][0]), cy: fmt((still ? B : A)[key][1]), r: r, class: cls });
-    if (!still) {
-      animate(c, 'cx', fmt(A[key][0]), fmt(B[key][0]), dur);
-      animate(c, 'cy', fmt(A[key][1]), fmt(B[key][1]), dur);
-    }
-    return c;
+  function draw(fig, t) {
+    var d = derive(mix(fig.A, fig.B, t));
+    PARTS.forEach(function (part, i) {
+      fig.paths[i].setAttribute('d', part[0] === 'c'
+        ? capsulePath(d[part[1]], part[2], d[part[3]], part[4])
+        : circlePath(d[part[1]], part[2]));
+    });
+  }
+
+  // Én felles animasjonsløkke for alle figurer på siden.
+  var live = [];
+  var running = false;
+  function tick(now) {
+    live = live.filter(function (fig) { return fig.svg.isConnected; });
+    live.forEach(function (fig) {
+      var phase = (now / 1000 / fig.dur) % 1;
+      draw(fig, (1 - Math.cos(phase * 2 * Math.PI)) / 2);
+    });
+    if (live.length) requestAnimationFrame(tick); else running = false;
   }
 
   // Lager en <svg> for øvelsen, eller null om øvelsen ikke har figur.
-  function create(key, label) {
+  // opts.pose: 0 eller 1 tegner én fast stilling (brukes til forhåndsvisning).
+  function create(key, label, opts) {
     var def = DEFS[key];
     if (!def) return null;
-    var A = derive(def.poses[0]), B = derive(def.poses[1]);
-    var still = reducedMotion();
+    opts = opts || {};
 
     var svg = el('svg', {
       viewBox: '0 0 120 80', class: 'figure', role: 'img',
       'aria-label': label || 'Figur som viser øvelsen',
     });
-
-    svg.appendChild(el('ellipse', { cx: 60, cy: GROUND + 1, rx: 52, ry: 2.5, class: 'fig-ground' }));
+    svg.appendChild(el('ellipse', { cx: 60, cy: GROUND + 1, rx: 50, ry: 2.4, class: 'fig-ground' }));
     (def.props || []).forEach(function (r) {
       svg.appendChild(el('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'fig-prop' }));
     });
 
+    var fig = { svg: svg, A: def.poses[0], B: def.poses[1], dur: def.dur, paths: [] };
     PARTS.forEach(function (part) {
-      var a = seg(A, part[0], part[1]), b = seg(B, part[0], part[1]);
-      var line = el('polyline', {
-        points: still ? b : a, 'stroke-width': part[3],
-        class: 'fig-part ' + part[2],
-      });
-      if (!still) animate(line, 'points', a, b, def.dur);
-      svg.appendChild(line);
-      if (part[1] === 'handF') svg.appendChild(circle(A, B, 'handF', 2.8, 'fig-fill skin', still, def.dur));
+      var path = el('path', { class: 'fig-' + part[part.length - 1] });
+      fig.paths.push(path);
+      svg.appendChild(path);
     });
 
-    svg.appendChild(circle(A, B, 'hair', 6.6, 'fig-fill hair', still, def.dur));
-    svg.appendChild(circle(A, B, 'face', 5.8, 'fig-fill skin', still, def.dur));
-
+    var fixed = opts.pose !== undefined ? opts.pose : (reducedMotion() ? 1 : null);
+    draw(fig, fixed === null ? 0 : fixed);
+    if (fixed === null) {
+      live.push(fig);
+      if (!running) { running = true; requestAnimationFrame(tick); }
+    }
     return svg;
   }
 

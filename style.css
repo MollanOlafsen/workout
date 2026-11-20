@@ -104,21 +104,49 @@ p { margin: 0; }
 
 .figure { flex: none; width: 120px; height: 80px; background: var(--soft); }
 .card.test .figure { background: rgba(255, 255, 255, 0.6); }
-.fig-ground { fill: var(--line); }
+.fig-ground { fill: #DDE1E8; }
 .fig-prop { fill: #9AA3B2; }
-.fig-part { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.fig-part.skin { stroke: #E2A880; }
-.fig-part.skin.back { stroke: #C68A63; }
-.fig-part.shirt { stroke: var(--blue); }
-.fig-part.shirt.back { stroke: var(--blue-dark); }
-.fig-part.shorts { stroke: var(--ink); }
-.fig-part.shorts.back { stroke: #3A4252; }
-.fig-part.shoe { stroke: #E2601F; }
-.fig-part.shoe.back { stroke: #B5481A; }
-.fig-fill.skin { fill: #E2A880; }
-.fig-fill.hair { fill: #3B2A20; }
+
+/* Stil A: illustrasjon med klær */
+.fig-skin { fill: #E8B08A; }
+.fig-skin-b { fill: #C98E68; }
+.fig-shirt { fill: var(--blue); }
+.fig-shirt-b { fill: var(--blue-dark); }
+.fig-shirt-hi { fill: #4D77EC; }
+.fig-shorts { fill: #1B2230; }
+.fig-shorts-b { fill: #3A4252; }
+.fig-shoe { fill: #E2601F; }
+.fig-shoe-b { fill: #B5481A; }
+.fig-hair { fill: #3B2A20; }
+.fig-ear { fill: #C98E68; }
+
+/* Stil B: silhuett i plakatens blåfarge */
+.style-b .fig-skin, .style-b .fig-shirt, .style-b .fig-shorts, .style-b .fig-shoe, .style-b .fig-hair, .style-b .fig-ear { fill: var(--blue); }
+.style-b .fig-skin-b, .style-b .fig-shirt-b, .style-b .fig-shorts-b, .style-b .fig-shoe-b { fill: #9DB2F0; }
+.style-b .fig-shirt-hi { fill: none; }
 
 .sets { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.clock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--soft);
+}
+.clock-face {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 48px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2ch;
+}
+.clock.running { background: var(--ink); color: #FFFFFF; }
+.clock.running .btn { background: #FFFFFF; border-color: #FFFFFF; color: var(--ink); }
+.clock-buttons { display: flex; gap: 8px; }
 
 button { font: inherit; color: inherit; cursor: pointer; }
 

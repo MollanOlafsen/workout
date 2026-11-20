@@ -39,6 +39,106 @@
   var viewDay = null;       // dagen som vises under «I dag»; null = gjeldende dag
   var confirmReset = false;
 
+  // ---- Klokke for øvelser på tid ------------------------------------------
+
+  // Én klokke om gangen: { day, i, total, left (sekunder), endAt (ms) eller null når den står }
+  var timer = null;
+  var tickHandle = null;
+
+  function timerFor(day, i) { return timer && timer.day === day && timer.i === i ? timer : null; }
+
+  function timeLeft(t) {
+    return t.endAt ? Math.max(0, (t.endAt - Date.now()) / 1000) : t.left;
+  }
+
+  function fmtClock(sec) {
+    var s = Math.ceil(sec);
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ':' + (r < 10 ? '0' + r : r);
+  }
+
+  function startTimer(day, i, total) {
+    var t = timerFor(day, i);
+    if (!t) { stopTicking(); t = timer = { day: day, i: i, total: total, left: total, endAt: null }; }
+    if (t.left <= 0) t.left = total;
+    t.endAt = Date.now() + t.left * 1000;
+    startTicking();
+    render();
+  }
+
+  function pauseTimer() {
+    if (!timer || !timer.endAt) return;
+    timer.left = timeLeft(timer);
+    timer.endAt = null;
+    stopTicking();
+    render();
+  }
+
+  function resetTimer() {
+    stopTicking();
+    timer = null;
+    render();
+  }
+
+  function startTicking() {
+    stopTicking();
+    tickHandle = setInterval(onTick, 200);
+  }
+
+  function stopTicking() {
+    if (tickHandle) clearInterval(tickHandle);
+    tickHandle = null;
+  }
+
+  function onTick() {
+    if (!timer || !timer.endAt) return stopTicking();
+    var left = timeLeft(timer);
+    var face = document.getElementById('clock-face');
+    if (face) face.textContent = fmtClock(left);
+    if (left > 0) return;
+    var day = timer.day, i = timer.i;
+    stopTicking();
+    timer = null;
+    signalDone();
+    if (setsFor(day, i) < 1) tapSet(day, i, 1); else render();
+  }
+
+  // Kort pip og vibrasjon når tiden er ute.
+  function signalDone() {
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      [0, 0.25].forEach(function (at) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = 880;
+        g.gain.setValueAtTime(0.25, ctx.currentTime + at);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + at + 0.2);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(ctx.currentTime + at); o.stop(ctx.currentTime + at + 0.2);
+      });
+    } catch (e) {}
+  }
+
+  function clockBox(day, i, total) {
+    var t = timerFor(day, i);
+    var running = !!(t && t.endAt);
+    var left = t ? timeLeft(t) : total;
+    var buttons = [
+      running
+        ? h('button', { class: 'btn small', type: 'button', text: 'Stopp', onclick: pauseTimer })
+        : h('button', { class: 'btn small', type: 'button', text: t && left < total ? 'Fortsett' : 'Start',
+            onclick: function () { startTimer(day, i, total); } }),
+    ];
+    if (t) buttons.push(h('button', { class: 'btn ghost small', type: 'button', text: 'Nullstill', onclick: resetTimer }));
+    return h('div', { class: 'clock' + (running ? ' running' : '') }, [
+      h('div', { class: 'clock-face', id: running ? 'clock-face' : null, 'aria-live': 'off', text: fmtClock(left) }),
+      h('div', { class: 'clock-buttons' }, buttons),
+    ]);
+  }
+
   // ---- Hjelpere ----------------------------------------------------------
 
   function h(tag, attrs, children) {
@@ -96,6 +196,7 @@
   }
 
   function completeDay(day) {
+    if (timer && timer.day === day) { stopTicking(); timer = null; }
     state.done[day] = todayIso();
     save();
     viewDay = null;
@@ -184,6 +285,7 @@
               ex.hint ? h('p', { class: 'hint', text: ex.hint }) : null,
             ]),
           ]),
+          timed ? clockBox(day, i, item[1]) : null,
           h('div', { class: 'sets' }, buttons),
         ]));
       });
