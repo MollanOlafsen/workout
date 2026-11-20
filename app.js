@@ -380,7 +380,7 @@
       ]);
     });
     root.appendChild(h('div', { class: 'grid' }, cells));
-    root.appendChild(h('p', { class: 'hint', text: 'Blå = fullført. Tykk ramme = dagens økt. Trykk på en dag for å åpne den.' }));
+    root.appendChild(h('p', { class: 'hint', text: 'Mørk = fullført. Gullramme = dagens økt. Trykk på en dag for å åpne den.' }));
 
     root.appendChild(h('h2', { text: 'Maks armhevinger' }));
     var testDays = [];
