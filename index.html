@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>28 dager – treningsapp</title>
+<meta name="theme-color" content="#1F4FD8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="28 dager">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">28 dager</div>
+  <div class="count" id="count" aria-live="polite"></div>
+</header>
+
+<main id="view"></main>
+
+<nav class="tabs" aria-label="Hovedmeny">
+  <a href="#i-dag" id="tab-i-dag">I dag</a>
+  <a href="#oversikt" id="tab-oversikt">Oversikt</a>
+</nav>
+
+<script src="plan.js"></script>
+<script src="figures.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
