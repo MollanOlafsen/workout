@@ -331,7 +331,18 @@ input[type="number"] {
 }
 .rest-buttons { display: flex; gap: 8px; }
 .rest-bar .btn.ghost { color: var(--cream); border-color: rgba(246, 241, 231, 0.35); }
-body:has(.rest-bar) main { padding-bottom: 150px; }
+.tempo { display: flex; align-items: center; gap: 8px; width: 100%; font-size: 13px; opacity: 0.9; }
+.tempo-btn {
+  width: 44px; height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 241, 231, 0.35);
+  background: transparent;
+  color: var(--cream);
+  font-size: 18px;
+  line-height: 1;
+}
+.tempo-val { min-width: 3.5ch; text-align: center; font-variant-numeric: tabular-nums; }
+body:has(.rest-bar) main { padding-bottom: 190px; }
 
 .nosleep { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
