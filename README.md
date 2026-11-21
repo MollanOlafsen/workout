@@ -4,7 +4,7 @@ Personlig web-app for 28-dagersprogrammet i kalisthenics (armhevinger, knebøy, 
 
 ## Hva appen gjør
 
-- **I dag:** viser dagens økt med en liten animert figur som viser hver øvelse, med én knapp per sett som krysses av. Øvelser på tid (planke og høye kneløft) har en klokke med start og stopp som teller ned og krysser av når tiden er ute. Etter hvert sett starter en pause på 45 sekunder med nedtelling (kan forlenges eller hoppes over). Skjermen holdes våken mens appen er åpen. Dagen kan fullføres når alle sett er tatt.
+- **I dag:** viser dagens økt med en liten animert figur som viser hver øvelse, med én knapp per sett som krysses av. Øvelser på tid (planke og høye kneløft) har en klokke med start og stopp som teller ned og krysser av når tiden er ute. Etter hvert sett starter en pause på 45 sekunder med nedtelling (kan forlenges eller hoppes over). Skjermen holdes våken mens appen er åpen. Appen snakker norsk: den leser opp pauser, nedtelling (10, 3, 2, 1) og neste sett, og kan slås av med «Tale på/av» øverst. Dagen kan fullføres når alle sett er tatt.
 - **Hviledager og maks-tester:** hviledager markeres som fullført; på dag 7, 15 og 28 skriver du inn antall armhevinger.
 - **Oversikt:** alle 28 dager i et rutenett, fremgang og resultatene fra maks-testene.
 
