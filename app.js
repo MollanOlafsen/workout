@@ -39,6 +39,86 @@
   var viewDay = null;       // dagen som vises under «I dag»; null = gjeldende dag
   var confirmReset = false;
 
+  // ---- Tale -----------------------------------------------------------------
+  //
+  // Appen leser opp pauser, nedtelling og neste sett med en norsk stemme
+  // (Web Speech API). Kan slås av i toppen. iOS krever et trykk før første tale.
+
+  var SPEECH_KEY = 'kalisthenics28-tale';
+  var speechOn = (function () {
+    try { return localStorage.getItem(SPEECH_KEY) !== 'av'; } catch (e) { return true; }
+  })();
+  var canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+  var voice = null;
+  var speechUnlocked = false;
+
+  function pickVoice() {
+    if (!canSpeak) return;
+    var voices = window.speechSynthesis.getVoices() || [];
+    var prefer = ['nb-NO', 'nb', 'no-NO', 'no', 'nn-NO', 'da-DK', 'sv-SE'];
+    for (var i = 0; i < prefer.length && !voice; i++) {
+      for (var j = 0; j < voices.length; j++) {
+        var lang = (voices[j].lang || '').replace('_', '-');
+        if (lang.toLowerCase().indexOf(prefer[i].toLowerCase()) === 0) { voice = voices[j]; break; }
+      }
+    }
+  }
+  if (canSpeak) {
+    pickVoice();
+    if (window.speechSynthesis.addEventListener) window.speechSynthesis.addEventListener('voiceschanged', pickVoice);
+  }
+
+  // interrupt: avbryt det som blir sagt nå (brukes til nedtellingstall).
+  function say(text, interrupt) {
+    if (!speechOn || !canSpeak) return;
+    try {
+      if (interrupt) window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = voice ? voice.lang : 'nb-NO';
+      if (voice) u.voice = voice;
+      u.rate = 1.05;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function unlockSpeech() {
+    if (speechUnlocked || !canSpeak || !speechOn) return;
+    speechUnlocked = true;
+    try {
+      var u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  document.addEventListener('click', unlockSpeech, true);
+  document.addEventListener('touchend', unlockSpeech, true);
+
+  function toggleSpeech() {
+    speechOn = !speechOn;
+    try { localStorage.setItem(SPEECH_KEY, speechOn ? 'på' : 'av'); } catch (e) {}
+    if (!speechOn && canSpeak) window.speechSynthesis.cancel();
+    else { speechUnlocked = false; unlockSpeech(); say('Tale er på'); }
+    renderSpeechButton();
+  }
+
+  function renderSpeechButton() {
+    var btn = document.getElementById('speech-toggle');
+    if (!btn) return;
+    btn.hidden = !canSpeak;
+    btn.textContent = speechOn ? 'Tale på' : 'Tale av';
+    btn.setAttribute('aria-pressed', speechOn ? 'true' : 'false');
+  }
+
+  // Sier nedtellingen ved 10, 3, 2 og 1 sekunder. Husker hva som er sagt.
+  function countdownSpeech(obj, left) {
+    var sec = Math.ceil(left);
+    if (sec === obj.spoken) return;
+    if (sec === 10 && obj.total > 15) { obj.spoken = sec; say('10 sekunder igjen', true); }
+    else if (sec >= 1 && sec <= 3) { obj.spoken = sec; say(String(sec), true); }
+  }
+
+  function secondsText(n) { return n + ' sekunder'; }
+
   // ---- Klokke for øvelser på tid ------------------------------------------
 
   // Én klokke om gangen: { day, i, total, left (sekunder), endAt (ms) eller null når den står }
@@ -62,13 +142,17 @@
     var t = timerFor(day, i);
     if (!t) { stopTicking(); t = timer = { day: day, i: i, total: total, left: total, endAt: null }; }
     if (t.left <= 0) t.left = total;
+    var resumed = t.left < total;
     t.endAt = Date.now() + t.left * 1000;
+    t.spoken = null;
+    say(resumed ? 'Fortsett' : 'Start. ' + secondsText(total) + ' ' + EXERCISES[PLAN[day - 1].items[i][0]].name.toLowerCase(), true);
     startTicking();
     render();
   }
 
   function pauseTimer() {
     if (!timer || !timer.endAt) return;
+    say('Stopp', true);
     timer.left = timeLeft(timer);
     timer.endAt = null;
     stopTicking();
@@ -96,10 +180,11 @@
     var left = timeLeft(timer);
     var face = document.getElementById('clock-face');
     if (face) face.textContent = fmtClock(left);
-    if (left > 0) return;
+    if (left > 0) { countdownSpeech(timer, left); return; }
     var day = timer.day, i = timer.i;
     stopTicking();
     timer = null;
+    say('Ferdig! Bra jobba.', true);
     signalDone();
     if (setsFor(day, i) < 1) tapSet(day, i, 1); else render();
   }
@@ -107,6 +192,7 @@
   // Kort pip og vibrasjon når tiden er ute.
   function signalDone() {
     try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+    if (speechOn && canSpeak) return;
     try {
       var Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
@@ -203,6 +289,8 @@
     stopRest();
     state.done[day] = todayIso();
     save();
+    var type = PLAN[day - 1].type;
+    say(type === 'rest' ? 'God hvile.' : 'Bra jobba! Dag ' + day + ' er fullført.', true);
     viewDay = null;
     render();
     window.scrollTo(0, 0);
@@ -249,7 +337,8 @@
       }
     }
     if (!next) { stopRest(); return; }
-    rest = { endAt: Date.now() + REST_SECONDS * 1000, next: next };
+    rest = { endAt: Date.now() + REST_SECONDS * 1000, next: next, total: REST_SECONDS, spoken: null };
+    say('Pause. ' + secondsText(REST_SECONDS) + '. Neste: ' + next + '.');
     if (restHandle) clearInterval(restHandle);
     restHandle = setInterval(onRestTick, 200);
   }
@@ -265,6 +354,9 @@
   function addRest(sec) {
     if (!rest) return;
     rest.endAt += sec * 1000;
+    rest.total += sec;
+    rest.spoken = null;
+    say('15 sekunder ekstra', true);
     onRestTick();
   }
 
@@ -273,7 +365,11 @@
     var left = Math.max(0, (rest.endAt - Date.now()) / 1000);
     var face = document.getElementById('rest-face');
     if (face) face.textContent = fmtClock(left);
-    if (left <= 0) { stopRest(); signalDone(); }
+    if (left > 0) { countdownSpeech(rest, left); return; }
+    var next = rest.next;
+    stopRest();
+    say('Kjør! ' + next, true);
+    signalDone();
   }
 
   function restBar() {
@@ -287,7 +383,11 @@
       h('div', { class: 'rest-face', id: 'rest-face', text: fmtClock(left) }),
       h('div', { class: 'rest-buttons' }, [
         h('button', { class: 'btn ghost small', type: 'button', text: '+15 s', onclick: function () { addRest(15); } }),
-        h('button', { class: 'btn small', type: 'button', text: 'Hopp over', onclick: stopRest }),
+        h('button', { class: 'btn small', type: 'button', text: 'Hopp over', onclick: function () {
+          var next = rest && rest.next;
+          stopRest();
+          if (next) say('Kjør! ' + next, true);
+        } }),
       ]),
     ]);
   }
@@ -555,5 +655,8 @@
   }
 
   window.addEventListener('hashchange', function () { confirmReset = false; render(); });
+  var speechBtn = document.getElementById('speech-toggle');
+  if (speechBtn) speechBtn.addEventListener('click', toggleSpeech);
+  renderSpeechButton();
   render();
 })();
