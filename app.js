@@ -190,13 +190,17 @@
 
   function tapSet(day, i, n) {
     if (!state.sets[day]) state.sets[day] = {};
-    state.sets[day][i] = setsFor(day, i) === n ? n - 1 : n;
+    var undo = setsFor(day, i) === n;
+    state.sets[day][i] = undo ? n - 1 : n;
     save();
+    if (undo) stopRest();
+    else startRestAfter(day, i);
     render();
   }
 
   function completeDay(day) {
     if (timer && timer.day === day) { stopTicking(); timer = null; }
+    stopRest();
     state.done[day] = todayIso();
     save();
     viewDay = null;
@@ -225,6 +229,112 @@
     location.hash = '#i-dag';
     render();
   }
+
+  // ---- Pause mellom settene ----------------------------------------------
+
+  var REST_SECONDS = 45;
+  var rest = null;        // { endAt (ms), next (tekst) }
+  var restHandle = null;
+
+  // Starter pausen etter et sett. Neste sett kan være i samme øvelse eller neste øvelse.
+  function startRestAfter(day, i) {
+    var items = PLAN[day - 1].items;
+    var next = null;
+    for (var k = i; k < items.length; k++) {
+      var have = setsFor(day, k), want = targetSets(items[k]);
+      if (have < want) {
+        var ex = EXERCISES[items[k][0]].name;
+        next = items[k].length === 3 ? ex + ', sett ' + (have + 1) + ' av ' + want : ex;
+        break;
+      }
+    }
+    if (!next) { stopRest(); return; }
+    rest = { endAt: Date.now() + REST_SECONDS * 1000, next: next };
+    if (restHandle) clearInterval(restHandle);
+    restHandle = setInterval(onRestTick, 200);
+  }
+
+  function stopRest() {
+    if (restHandle) clearInterval(restHandle);
+    restHandle = null;
+    rest = null;
+    var bar = document.getElementById('rest-bar');
+    if (bar) bar.remove();
+  }
+
+  function addRest(sec) {
+    if (!rest) return;
+    rest.endAt += sec * 1000;
+    onRestTick();
+  }
+
+  function onRestTick() {
+    if (!rest) return stopRest();
+    var left = Math.max(0, (rest.endAt - Date.now()) / 1000);
+    var face = document.getElementById('rest-face');
+    if (face) face.textContent = fmtClock(left);
+    if (left <= 0) { stopRest(); signalDone(); }
+  }
+
+  function restBar() {
+    if (!rest) return null;
+    var left = Math.max(0, (rest.endAt - Date.now()) / 1000);
+    return h('div', { class: 'rest-bar', id: 'rest-bar', role: 'status' }, [
+      h('div', { class: 'rest-text' }, [
+        h('div', { class: 'kicker', text: 'Pause' }),
+        h('div', { class: 'rest-next', text: 'Neste: ' + rest.next }),
+      ]),
+      h('div', { class: 'rest-face', id: 'rest-face', text: fmtClock(left) }),
+      h('div', { class: 'rest-buttons' }, [
+        h('button', { class: 'btn ghost small', type: 'button', text: '+15 s', onclick: function () { addRest(15); } }),
+        h('button', { class: 'btn small', type: 'button', text: 'Hopp over', onclick: stopRest }),
+      ]),
+    ]);
+  }
+
+  // ---- Hold skjermen våken ------------------------------------------------
+  //
+  // Bruker Screen Wake Lock der nettleseren støtter det. Ellers spilles en
+  // liten, stum video i løkke, som også hindrer skjermen i å slukke.
+
+  var wakeLock = null;
+  var wakeVideo = null;
+
+  function keepAwake() {
+    if (document.visibilityState !== 'visible') return;
+    if ('wakeLock' in navigator) {
+      if (wakeLock) return;
+      navigator.wakeLock.request('screen').then(function (lock) {
+        wakeLock = lock;
+        lock.addEventListener('release', function () { wakeLock = null; });
+      }).catch(function () { videoFallback(); });
+      return;
+    }
+    videoFallback();
+  }
+
+  function videoFallback() {
+    try {
+      if (!wakeVideo) {
+        wakeVideo = document.createElement('video');
+        wakeVideo.setAttribute('playsinline', '');
+        wakeVideo.setAttribute('muted', '');
+        wakeVideo.setAttribute('aria-hidden', 'true');
+        wakeVideo.muted = true;
+        wakeVideo.loop = true;
+        wakeVideo.src = 'nosleep.mp4';
+        wakeVideo.className = 'nosleep';
+        document.body.appendChild(wakeVideo);
+      }
+      var p = wakeVideo.play();
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+
+  // Må startes av et trykk første gang; fornyes når appen kommer tilbake i forgrunnen.
+  document.addEventListener('click', keepAwake, true);
+  document.addEventListener('touchend', keepAwake, true);
+  document.addEventListener('visibilitychange', keepAwake);
 
   // ---- Visning: I dag ----------------------------------------------------
 
@@ -432,6 +542,10 @@
     var root = document.getElementById('view');
     root.textContent = '';
     if (route === 'oversikt') renderOverview(root); else renderDay(root);
+    var oldBar = document.getElementById('rest-bar');
+    if (oldBar) oldBar.remove();
+    var bar = restBar();
+    if (bar) document.body.appendChild(bar);
 
     document.getElementById('count').textContent = doneCount() + ' / ' + TOTAL;
     ['i-dag', 'oversikt'].forEach(function (r) {

@@ -288,6 +288,41 @@ input[type="number"] {
 .clock.running .btn.ghost { color: var(--cream); border-color: rgba(246, 241, 231, 0.35); }
 .clock-buttons { display: flex; gap: 8px; }
 
+/* ---- Pause mellom settene ---- */
+
+.rest-bar {
+  position: fixed;
+  left: 10px; right: 10px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  max-width: 540px;
+  margin: 0 auto;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--grad-navy);
+  color: var(--cream);
+  box-shadow: 0 12px 30px rgba(15, 27, 45, 0.35);
+}
+.rest-text { flex: 1; min-width: 140px; }
+.rest-next { font-size: 14px; opacity: 0.85; }
+.rest-face {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1;
+  color: var(--gold-hi);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.rest-buttons { display: flex; gap: 8px; }
+.rest-bar .btn.ghost { color: var(--cream); border-color: rgba(246, 241, 231, 0.35); }
+body:has(.rest-bar) main { padding-bottom: 150px; }
+
+.nosleep { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
 /* ---- Oversikt ---- */
 
 .bar { height: 10px; background: var(--cream-2); border-radius: 999px; overflow: hidden; }
