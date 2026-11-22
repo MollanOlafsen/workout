@@ -345,18 +345,20 @@
   // Starter pausen etter et sett. Neste sett kan være i samme øvelse eller neste øvelse.
   function startRestAfter(day, i) {
     var items = PLAN[day - 1].items;
-    var next = null;
+    var next = null, cue = null;
     for (var k = i; k < items.length; k++) {
       var have = setsFor(day, k), want = targetSets(items[k]);
       if (have < want) {
         var ex = EXERCISES[items[k][0]].name;
         next = items[k].length === 3 ? ex + ', sett ' + (have + 1) + ' av ' + want : ex;
+        // Huskeregel før en ny øvelse, ikke før hvert sett.
+        if (have === 0 || k !== i) cue = EXERCISES[items[k][0]].cue || null;
         break;
       }
     }
     if (!next) { stopRest(); return; }
-    rest = { endAt: Date.now() + REST_SECONDS * 1000, next: next, total: REST_SECONDS, spoken: null };
-    say('Pause. ' + secondsText(REST_SECONDS) + '. Neste: ' + next + '.');
+    rest = { endAt: Date.now() + REST_SECONDS * 1000, next: next, cue: cue, total: REST_SECONDS, spoken: null };
+    say('Pause. ' + secondsText(REST_SECONDS) + '. Neste: ' + next + '.' + (cue ? ' Husk: ' + cue : ''));
     if (restHandle) clearInterval(restHandle);
     restHandle = setInterval(onRestTick, 200);
   }
@@ -397,6 +399,7 @@
       h('div', { class: 'rest-text' }, [
         h('div', { class: 'kicker', text: 'Pause' }),
         h('div', { class: 'rest-next', text: 'Neste: ' + rest.next }),
+        rest.cue ? h('div', { class: 'rest-cue', text: rest.cue }) : null,
       ]),
       h('div', { class: 'rest-face', id: 'rest-face', text: fmtClock(left) }),
       h('div', { class: 'rest-buttons' }, [
@@ -454,6 +457,60 @@
   document.addEventListener('touchend', keepAwake, true);
   document.addEventListener('visibilitychange', keepAwake);
 
+  // ---- Trenertips ---------------------------------------------------------
+  //
+  // Tipsene står åpne til du lukker dem. Hvilke du har lukket, huskes på enheten.
+
+  var TIPS_KEY = 'kalisthenics28-tips';
+  var tipsClosed = (function () {
+    try { return JSON.parse(localStorage.getItem(TIPS_KEY)) || {}; } catch (e) { return {}; }
+  })();
+
+  function tipsToggle(id, open) {
+    if (open) delete tipsClosed[id]; else tipsClosed[id] = 1;
+    try { localStorage.setItem(TIPS_KEY, JSON.stringify(tipsClosed)); } catch (e) {}
+  }
+
+  function foldout(id, title, cls, children) {
+    var d = h('details', { class: 'coach' + (cls ? ' ' + cls : ''), open: !tipsClosed[id] }, [
+      h('summary', { text: title }),
+    ].concat(children));
+    d.addEventListener('toggle', function () { tipsToggle(id, d.open); });
+    return d;
+  }
+
+  function list(items) {
+    return h('ul', { class: 'coach-list' }, items.map(function (t) { return h('li', { text: t }); }));
+  }
+
+  function tipLine(label, text, cls) {
+    if (!text) return null;
+    var p = h('p', { class: 'coach-line' + (cls ? ' ' + cls : '') }, [h('strong', { text: label + ' ' })]);
+    p.appendChild(document.createTextNode(text));
+    return p;
+  }
+
+  function exerciseTips(key) {
+    var ex = EXERCISES[key];
+    if (!ex.steps) return null;
+    return foldout('ex-' + key, 'Trenerens tips', null, [
+      list(ex.steps),
+      tipLine('Nybegynner?', ex.easy, 'easy'),
+      tipLine('Pust:', ex.breath),
+      tipLine('Unngå:', ex.avoid),
+    ]);
+  }
+
+  function coachCard(day) {
+    var week = Math.min(COACH_WEEKS.length - 1, Math.floor((day - 1) / 7));
+    return h('section', { class: 'card coach-card' }, [
+      h('div', { class: 'kicker', text: 'Treneren sier' }),
+      h('p', { class: 'coach-quote', text: COACH_WEEKS[week] }),
+      foldout('warmup', 'Oppvarming, 2 minutter', null, [list(WARMUP)]),
+      h('p', { class: 'hint', text: SAFETY }),
+    ]);
+  }
+
   // ---- Visning: I dag ----------------------------------------------------
 
   function renderDay(root) {
@@ -484,6 +541,7 @@
     ]));
 
     if (entry.type === 'work') {
+      root.appendChild(coachCard(day));
       entry.items.forEach(function (item, i) {
         var ex = EXERCISES[item[0]];
         var timed = item.length === 2;
@@ -510,9 +568,11 @@
                 h('div', { class: 'ex-name', text: ex.name }),
                 h('div', { class: 'ex-target', text: target }),
               ]),
+              ex.how ? h('p', { class: 'ex-how', text: ex.how }) : null,
               ex.hint ? h('p', { class: 'hint', text: ex.hint }) : null,
             ]),
           ]),
+          exerciseTips(item[0]),
           timed ? clockBox(day, i, item[1]) : null,
           h('div', { class: 'sets' }, buttons),
         ]));
@@ -534,7 +594,8 @@
     if (entry.type === 'rest') {
       root.appendChild(h('section', { class: 'card rest' }, [
         h('h2', { text: 'Ingen trening i dag' }),
-        h('p', { text: 'Hviledagen er en del av programmet.' }),
+        h('p', { text: 'Hviledagen er en del av programmet. Musklene blir sterkere når de får hvile.' }),
+        list(REST_TIPS),
         done ? null : h('button', { class: 'btn', type: 'button', text: 'Marker som fullført',
           onclick: function () { completeDay(day); } }),
       ]));
@@ -547,12 +608,15 @@
       type: 'number', id: 'test-input', inputmode: 'numeric', min: '0', step: '1',
       value: state.tests[day] !== undefined ? String(state.tests[day]) : null,
     });
+    root.appendChild(coachCard(day));
     root.appendChild(h('section', { class: 'card test' }, [
       h('div', { class: 'ex-top' }, [
         FIGURES.create('pu', 'Armhevinger, vist med en figur'),
         h('h2', { text: 'Maks armhevinger' }),
       ]),
       h('p', { text: 'Ta så mange armhevinger du klarer på rad, og skriv inn antallet.' }),
+      list(TEST_TIPS),
+      exerciseTips('pu'),
       h('div', { class: 'row' }, [
         h('label', { for: 'test-input', text: 'Antall' }),
         input,
