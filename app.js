@@ -69,11 +69,24 @@
   }
 
   // interrupt: avbryt det som blir sagt nå (brukes til nedtellingstall).
+  // Stavemåter som talemotoren uttaler riktig. «Armhevinger» ble lest som «uthevninger».
+  var SPOKEN = [
+    [/Incline-armhevinger/g, 'skrå arm-hevinger'],
+    [/Decline-armhevinger/g, 'arm-hevinger med beina høyt'],
+    [/[Aa]rmhevinger/g, 'arm-hevinger'],
+    [/Høye kneløft/g, 'høye kne-løft'],
+    [/høye kneløft/g, 'høye kne-løft'],
+  ];
+  function spoken(text) {
+    SPOKEN.forEach(function (r) { text = text.replace(r[0], r[1]); });
+    return text;
+  }
+
   function say(text, interrupt) {
     if (!speechOn || !canSpeak) return;
     try {
       if (interrupt) window.speechSynthesis.cancel();
-      var u = new SpeechSynthesisUtterance(text);
+      var u = new SpeechSynthesisUtterance(spoken(text));
       u.lang = voice ? voice.lang : 'nb-NO';
       if (voice) u.voice = voice;
       u.rate = 1.05;
@@ -113,7 +126,7 @@
   function countdownSpeech(obj, left) {
     var sec = Math.ceil(left);
     if (sec === obj.spoken) return;
-    if (sec === 10 && obj.total > 15) { obj.spoken = sec; say('10 sekunder igjen', true); }
+    if (sec === 10 && obj.total > 25) { obj.spoken = sec; say('10 sekunder igjen', true); }
     else if (sec >= 1 && sec <= 3) { obj.spoken = sec; say(String(sec), true); }
   }
 
@@ -139,6 +152,7 @@
   }
 
   function startTimer(day, i, total) {
+    stopRest();
     var t = timerFor(day, i);
     if (!t) { stopTicking(); t = timer = { day: day, i: i, total: total, left: total, endAt: null }; }
     if (t.left <= 0) t.left = total;
@@ -180,7 +194,11 @@
     var left = timeLeft(timer);
     var face = document.getElementById('clock-face');
     if (face) face.textContent = fmtClock(left);
-    if (left > 0) { countdownSpeech(timer, left); return; }
+    if (left > 0) {
+      if (!timer.half && timer.total >= 20 && left <= timer.total / 2) { timer.half = true; say('Halvveis', true); }
+      countdownSpeech(timer, left);
+      return;
+    }
     var day = timer.day, i = timer.i;
     stopTicking();
     timer = null;
