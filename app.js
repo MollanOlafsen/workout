@@ -152,7 +152,6 @@
   }
 
   function startTimer(day, i, total) {
-    stopReps();
     stopRest();
     var t = timerFor(day, i);
     if (!t) { stopTicking(); t = timer = { day: day, i: i, total: total, left: total, endAt: null }; }
@@ -306,7 +305,6 @@
   function completeDay(day) {
     if (timer && timer.day === day) { stopTicking(); timer = null; }
     stopRest();
-    stopReps();
     state.done[day] = todayIso();
     save();
     var type = PLAN[day - 1].type;
@@ -412,93 +410,6 @@
     ]);
   }
 
-  // ---- Telling av repetisjoner ---------------------------------------------
-  //
-  // Trykk på et sett for å starte. Stemmen teller hver repetisjon i fast takt,
-  // settet krysses av etter siste repetisjon, og så starter pausen.
-
-  var TEMPO_KEY = 'kalisthenics28-takt';
-  var tempo = (function () {
-    try { var v = parseFloat(localStorage.getItem(TEMPO_KEY)); return v >= 1.5 && v <= 4 ? v : 2.5; }
-    catch (e) { return 2.5; }
-  })();
-  var LEAD_IN = 3;   // sekunder fra «Klar» til første repetisjon
-  var reps = null;   // { day, i, set, sets, total, count, nextAt }
-  var repHandle = null;
-
-  function startReps(day, i, setNo) {
-    stopRest();
-    stopReps();
-    var item = PLAN[day - 1].items[i];
-    reps = { day: day, i: i, set: setNo, sets: item[1], total: item[2], count: 0,
-      nextAt: Date.now() + LEAD_IN * 1000 };
-    var name = EXERCISES[item[0]].name;
-    say(name + ', sett ' + setNo + '. ' + item[2] + ' repetisjoner. Klar.', true);
-    repHandle = setInterval(onRepTick, 100);
-    render();
-  }
-
-  function stopReps() {
-    if (repHandle) clearInterval(repHandle);
-    repHandle = null;
-    reps = null;
-    var bar = document.getElementById('rep-bar');
-    if (bar) bar.remove();
-  }
-
-  function finishReps() {
-    if (!reps) return;
-    var day = reps.day, i = reps.i, setNo = reps.set;
-    stopReps();
-    say('Ferdig!', true);
-    if (setsFor(day, i) < setNo) tapSet(day, i, setNo); else render();
-  }
-
-  function onRepTick() {
-    if (!reps) return stopReps();
-    if (Date.now() < reps.nextAt) return;
-    reps.count++;
-    reps.nextAt += tempo * 1000;
-    say(String(reps.count), true);
-    var face = document.getElementById('rep-face');
-    if (face) face.textContent = reps.count + ' / ' + reps.total;
-    if (reps.count >= reps.total) {
-      clearInterval(repHandle);
-      repHandle = setTimeout(finishReps, Math.min(1500, tempo * 1000));
-    }
-  }
-
-  function changeTempo(delta) {
-    tempo = Math.max(1.5, Math.min(4, Math.round((tempo + delta) * 2) / 2));
-    try { localStorage.setItem(TEMPO_KEY, String(tempo)); } catch (e) {}
-    var t = document.getElementById('rep-tempo');
-    if (t) t.textContent = fmtTempo();
-  }
-
-  function fmtTempo() { return String(tempo).replace('.', ',') + ' s'; }
-
-  function repBar() {
-    if (!reps) return null;
-    var name = EXERCISES[PLAN[reps.day - 1].items[reps.i][0]].name;
-    return h('div', { class: 'rest-bar rep-bar', id: 'rep-bar', role: 'status' }, [
-      h('div', { class: 'rest-text' }, [
-        h('div', { class: 'kicker', text: 'Sett ' + reps.set + ' av ' + reps.sets }),
-        h('div', { class: 'rest-next', text: name }),
-      ]),
-      h('div', { class: 'rest-face', id: 'rep-face', text: reps.count + ' / ' + reps.total }),
-      h('div', { class: 'rest-buttons' }, [
-        h('button', { class: 'btn ghost small', type: 'button', text: 'Avbryt', onclick: function () { stopReps(); say('Avbrutt', true); render(); } }),
-        h('button', { class: 'btn small', type: 'button', text: 'Ferdig nå', onclick: finishReps }),
-      ]),
-      h('div', { class: 'tempo' }, [
-        h('span', { text: 'Takt' }),
-        h('button', { class: 'tempo-btn', type: 'button', 'aria-label': 'Raskere takt', text: '−', onclick: function () { changeTempo(-0.5); } }),
-        h('span', { id: 'rep-tempo', class: 'tempo-val', text: fmtTempo() }),
-        h('button', { class: 'tempo-btn', type: 'button', 'aria-label': 'Roligere takt', text: '+', onclick: function () { changeTempo(0.5); } }),
-      ]),
-    ]);
-  }
-
   // ---- Hold skjermen våken ------------------------------------------------
   //
   // Bruker Screen Wake Lock der nettleseren støtter det. Ellers spilles en
@@ -587,10 +498,7 @@
               'aria-pressed': have >= s ? 'true' : 'false',
               'aria-label': ex.name + ', ' + (timed ? item[1] + ' sekunder' : 'sett ' + s + ' av ' + n),
               text: timed ? item[1] + ' s' : String(item[2]),
-              onclick: function () {
-                if (!timed && have < s && !state.done[day]) startReps(day, i, have + 1);
-                else tapSet(day, i, s);
-              },
+              onclick: function () { tapSet(day, i, s); },
             }));
           })(s);
         }
@@ -752,11 +660,9 @@
     var root = document.getElementById('view');
     root.textContent = '';
     if (route === 'oversikt') renderOverview(root); else renderDay(root);
-    ['rest-bar', 'rep-bar'].forEach(function (id) {
-      var old = document.getElementById(id);
-      if (old) old.remove();
-    });
-    var bar = repBar() || restBar();
+    var oldBar = document.getElementById('rest-bar');
+    if (oldBar) oldBar.remove();
+    var bar = restBar();
     if (bar) document.body.appendChild(bar);
 
     document.getElementById('count').textContent = doneCount() + ' / ' + TOTAL;
