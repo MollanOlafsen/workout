@@ -407,3 +407,43 @@ body:has(.rest-bar) main { padding-bottom: 150px; }
 a.link { color: var(--blue); font-weight: 600; }
 
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* ---- Trenertips ---- */
+
+.ex-how { font-size: 15px; line-height: 1.4; }
+
+.coach-card { gap: 10px; }
+.coach-quote {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.coach {
+  border-radius: 12px;
+  background: rgba(201, 169, 97, 0.12);
+  border: 1px solid rgba(201, 169, 97, 0.35);
+  padding: 10px 14px;
+}
+.coach summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--gold-2);
+  list-style-position: inside;
+}
+.coach[open] summary { margin-bottom: 8px; }
+.coach-list { margin: 0 0 8px; padding-left: 20px; font-size: 14px; line-height: 1.45; }
+.coach-list li + li { margin-top: 4px; }
+.card.rest .coach-list { font-size: 15px; }
+.coach-line { font-size: 14px; line-height: 1.45; margin: 6px 0 0; }
+.coach-line.easy {
+  background: var(--card);
+  border-left: 3px solid var(--gold);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.card.test .coach { background: rgba(255, 255, 255, 0.5); }
+
+.rest-cue { font-size: 13px; color: var(--gold-hi); margin-top: 2px; }
